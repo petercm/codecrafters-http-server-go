@@ -9,26 +9,36 @@ import (
 	"strings"
 )
 
+func okContent(conn net.Conn, content string) {
+	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\n")
+	fmt.Fprintf(conn, "Content-Type: text/plain\r\n")
+	fmt.Fprintf(conn, "Content-Length: %d\r\n", len(content))
+	fmt.Fprintf(conn, "\r\n") //headers
+	fmt.Fprintf(conn, "%s\r\n", content)
+}
+
 func handle(conn net.Conn) {
 	request, err := http.ReadRequest(bufio.NewReader(conn))
 	if err != nil {
 		fmt.Println("Error reading request.", err.Error())
 	}
 	fmt.Printf("Request: %s %s \n", request.Method, request.URL)
+	// toEcho, isEcho := strings.CutPrefix(request.URL.Path, "/echo/")
 	toEcho, isEcho := strings.CutPrefix(request.URL.Path, "/echo/")
 	if isEcho {
-		fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\n")
-		fmt.Fprintf(conn, "Content-Type: text/plain\r\n")
-		fmt.Fprintf(conn, "Content-Length: %d\r\n", len(toEcho))
-		fmt.Fprintf(conn, "\r\n") //headers
-		fmt.Fprintf(conn, "%s\r\n", toEcho)
+		okContent(conn, toEcho)
 		return
 	}
-	if request.URL.Path == "/" {
+
+	switch request.URL.Path {
+	case "/":
 		fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\n\r\n")
-		return
+	case "/user-agent":
+		okContent(conn, request.UserAgent())
+	default:
+		fmt.Fprintf(conn, "HTTP/1.1 404 Not Found\r\n\r\n")
 	}
-	fmt.Fprintf(conn, "HTTP/1.1 404 Not Found\r\n\r\n")
+
 }
 
 func main() {
