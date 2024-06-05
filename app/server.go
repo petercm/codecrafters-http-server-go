@@ -18,6 +18,7 @@ func okContent(conn net.Conn, content string) {
 }
 
 func handle(conn net.Conn) {
+	defer conn.Close()
 	request, err := http.ReadRequest(bufio.NewReader(conn))
 	if err != nil {
 		fmt.Println("Error reading request.", err.Error())
@@ -50,13 +51,16 @@ func main() {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
+	defer l.Close()
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
 
+		}
+
+		go handle(conn)
 	}
-	defer conn.Close()
-	handle(conn)
 }
