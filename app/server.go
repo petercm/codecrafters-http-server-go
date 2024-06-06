@@ -17,6 +17,14 @@ func okContent(conn net.Conn, content string) {
 	fmt.Fprintf(conn, "%s\r\n", content)
 }
 
+func okFile(conn net.Conn, content []byte) {
+	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\n")
+	fmt.Fprintf(conn, "Content-Type: application/octet-stream\r\n")
+	fmt.Fprintf(conn, "Content-Length: %d\r\n", len(content))
+	fmt.Fprintf(conn, "\r\n") //headers
+	fmt.Fprintf(conn, "%s\r\n", content)
+}
+
 func handle(conn net.Conn) {
 	defer conn.Close()
 	request, err := http.ReadRequest(bufio.NewReader(conn))
@@ -24,10 +32,22 @@ func handle(conn net.Conn) {
 		fmt.Println("Error reading request.", err.Error())
 	}
 	fmt.Printf("Request: %s %s \n", request.Method, request.URL)
-	// toEcho, isEcho := strings.CutPrefix(request.URL.Path, "/echo/")
+
 	toEcho, isEcho := strings.CutPrefix(request.URL.Path, "/echo/")
 	if isEcho {
 		okContent(conn, toEcho)
+		return
+	}
+
+	fileName, isFile := strings.CutPrefix(request.URL.Path, "/files/")
+	if isFile {
+		fileContent, err := os.ReadFile(os.Args[2] + fileName)
+		if err != nil {
+			fmt.Println("Error reading request.", err.Error())
+			fmt.Fprintf(conn, "HTTP/1.1 404 Not Found\r\n\r\n")
+			return
+		}
+		okFile(conn, fileContent)
 		return
 	}
 
