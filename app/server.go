@@ -54,9 +54,14 @@ func handle(conn net.Conn) {
 	}
 	fmt.Printf("Request: %s %s \n", request.Method, request.URL)
 	resp := HttpResponse{out: conn, headers: make(map[string]string)}
-	acceptEncoding := request.Header["Accept-Encoding"]
-	if len(acceptEncoding) > 0 && acceptEncoding[0] == "gzip" {
-		resp.headers["Content-Encoding"] = "gzip"
+	acceptEncodings := request.Header["Accept-Encoding"]
+	if len(acceptEncodings) > 0 {
+		for _, acceptEncoding := range strings.Split(acceptEncodings[0], ", ") {
+			fmt.Println("accepts ", acceptEncoding)
+			if acceptEncoding == "gzip" {
+				resp.headers["Content-Encoding"] = "gzip"
+			}
+		}
 	}
 
 	toEcho, isEcho := strings.CutPrefix(request.URL.Path, "/echo/")
