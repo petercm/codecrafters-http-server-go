@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -41,14 +42,33 @@ func handle(conn net.Conn) {
 
 	fileName, isFile := strings.CutPrefix(request.URL.Path, "/files/")
 	if isFile {
-		fileContent, err := os.ReadFile(os.Args[2] + fileName)
-		if err != nil {
-			fmt.Println("Error reading request.", err.Error())
-			fmt.Fprintf(conn, "HTTP/1.1 404 Not Found\r\n\r\n")
+		if request.Method == "POST" {
+			contentLen := request.ContentLength
+			if contentLen <= 0 {
+				panic("content length less than 0")
+			}
+			bodyContent := make([]byte, contentLen)
+			_, err = io.ReadFull(request.Body, bodyContent)
+			if err != nil {
+				panic(err)
+			}
+			err = os.WriteFile(os.Args[2]+fileName, bodyContent, 0666)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Fprintf(conn, "HTTP/1.1 201 Created\r\n\r\n")
+			return
+		} else {
+
+			fileContent, err := os.ReadFile(os.Args[2] + fileName)
+			if err != nil {
+				fmt.Println("Error reading request.", err.Error())
+				fmt.Fprintf(conn, "HTTP/1.1 404 Not Found\r\n\r\n")
+				return
+			}
+			okFile(conn, fileContent)
 			return
 		}
-		okFile(conn, fileContent)
-		return
 	}
 
 	switch request.URL.Path {
