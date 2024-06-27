@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net"
@@ -20,7 +22,6 @@ type HttpResponse struct {
 func okString(resp HttpResponse, content string) {
 	resp.status = "200 OK"
 	resp.headers["Content-Type"] = "text/plain"
-	resp.headers["Content-Length"] = fmt.Sprint(len(content))
 	resp.content = []byte(content)
 	respond(resp)
 }
@@ -28,12 +29,34 @@ func okString(resp HttpResponse, content string) {
 func okFile(resp HttpResponse, content []byte) {
 	resp.status = "200 OK"
 	resp.headers["Content-Type"] = "application/octet-stream"
-	resp.headers["Content-Length"] = fmt.Sprint(len(content))
+
 	resp.content = content
 	respond(resp)
 }
 
+func encodeContent(resp HttpResponse) HttpResponse {
+	content := resp.content
+	switch resp.headers["Content-Encoding"] {
+	case "gzip":
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		_, err := gz.Write(content)
+		if err != nil {
+			panic(err)
+		}
+		if err := gz.Close(); err != nil {
+			panic(err)
+		}
+		content = buf.Bytes()
+	}
+	resp.content = content
+	resp.headers["Content-Length"] = fmt.Sprint(len(resp.content))
+	return resp
+}
+
 func respond(resp HttpResponse) {
+	resp = encodeContent(resp)
+
 	fmt.Fprintf(resp.out, "HTTP/1.1 %s\r\n", resp.status)
 	if len(resp.headers) > 0 {
 		for header, value := range resp.headers {
